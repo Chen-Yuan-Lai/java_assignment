@@ -18,16 +18,21 @@ public class Coin {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
-  
+
   @Column(name = "type", nullable = false)
   private String type;
-  
+
   @Column(name = "chinese", nullable = false)
   private String chinese;
-  
+
   public Coin(String type, String chinese) {
     this.type = type;
     this.chinese = chinese;
   }
 
+  public Coin(Long id, String type, String chinese) {
+    this.id = id;
+    this.type = type;
+    this.chinese = chinese;
+  }
 }

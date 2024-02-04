@@ -16,8 +16,12 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Service
 public class CoinService {
   private final CoinRepository coinRepository;
+  private final String json;
 
   public CoinService(CoinRepository coinRepository) {
+    WebClient.Builder builder = WebClient.builder();
+    String url = "https://api.coindesk.com/v1/bpi/currentprice.json";
+    this.json = builder.build().get().uri(url).retrieve().bodyToMono(String.class).block();
     this.coinRepository = coinRepository;
   }
 
@@ -25,13 +29,14 @@ public class CoinService {
     return coinRepository.findAll();
   }
 
-  public void addCoin(Coin coin) {
+  public Coin addCoin(Coin coin) {
     Optional<Coin> coinOptional = coinRepository.findCoinByType(coin.getType());
     if (coinOptional.isPresent()) {
       throw new IllegalStateException("The type has existed");
     }
     System.out.println(coin);
     coinRepository.save(coin);
+    return coin;
   }
 
   public void deleteCoin(Long coinId) {
@@ -45,39 +50,31 @@ public class CoinService {
   }
 
   @Transactional
-  public void updateCoin(Long coinId, String type, String chinese) {
-    Coin coin =
-        coinRepository
-            .findById(coinId)
-            .orElseThrow(
-                () -> new IllegalStateException("coin with id" + coinId + "does not exists"));
+  public Coin updateCoin(Long coinId, String type, String chinese) {
+    Coin coin = coinRepository
+        .findById(coinId)
+        .orElseThrow(
+            () -> new IllegalStateException("coin with id" + coinId + "does not exists"));
 
-    if (type != null && type.length() >= 0 && !Objects.equals(coin.getType(), type)) {
+    if (type != null && type.length() > 0 && !Objects.equals(coin.getType(), type)) {
       coin.setType(type);
     }
 
-    if (chinese != null && chinese.length() >= 0 && !Objects.equals(coin.getChinese(), chinese)) {
+    if (chinese != null && chinese.length() > 0 && !Objects.equals(coin.getChinese(), chinese)) {
       coin.setChinese(chinese);
     }
+    return coin;
   }
 
   public String getCoinDesk() {
-    String url = "https://api.coindesk.com/v1/bpi/currentprice.json";
-    WebClient.Builder builder = WebClient.builder();
-    String json = builder.build().get().uri(url).retrieve().bodyToMono(String.class).block();
-
-    return json;
+    return this.json;
   }
 
   public String getNewCoinDesk() {
-    String url = "https://api.coindesk.com/v1/bpi/currentprice.json";
-    WebClient.Builder builder = WebClient.builder();
-    String json = builder.build().get().uri(url).retrieve().bodyToMono(String.class).block();
-
     ObjectMapper objectMapper = new ObjectMapper();
     List<BitcoinPrice> prices = new ArrayList<>();
     try {
-      JsonNode rootNode = objectMapper.readTree(json);
+      JsonNode rootNode = objectMapper.readTree(this.json);
       JsonNode bpiNode = rootNode.path("bpi");
       String time = rootNode.path("time").path("updatedISO").asText();
       if (bpiNode.isObject()) {
@@ -86,8 +83,7 @@ public class CoinService {
           Map.Entry<String, JsonNode> field = fields.next();
           ObjectNode fieldValue = (ObjectNode) field.getValue();
 
-          Optional<Coin> coinOptional =
-              coinRepository.findCoinByType(fieldValue.get("code").asText());
+          Optional<Coin> coinOptional = coinRepository.findCoinByType(fieldValue.get("code").asText());
           if (!coinOptional.isPresent()) {
             throw new IllegalStateException("The type not existed");
           }
